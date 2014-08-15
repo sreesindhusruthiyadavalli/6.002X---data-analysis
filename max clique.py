@@ -1,133 +1,221 @@
-class Node(object):
-    def __init__(self, name):
-        self.name = str(name)
-    def getName(self):
-        return self.name
-    def __str__(self):
-        return self.name
+import pylab
 
-class Edge(object):
-    def __init__(self, src, dest):
-        self.src = src
-        self.dest = dest
-    def getSource(self):
-        return self.src
-    def getDestination(self):
-        return self.dest
-    def __str__(self):
-        return str(self.src) + '->' + str(self.dest)
-
-class WeightedEdge(Edge):
-    def __init__(self, src, dest, weight = 1.0):
-        self.src = src
-        self.dest = dest
-        self.weight = weight
-    def getWeight(self):
-        return self.weight
-    def __str__(self):
-        return str(self.src) + '->(' + str(self.weight) + ')'\
-            + str(self.dest)
-
-class Digraph(object):
-    def __init__(self):
-        self.nodes = set([])
-        self.edges = {}
-    def addNode(self, node):
-        if node in self.nodes:
-            raise ValueError('Duplicate node')
-        else:
-            self.nodes.add(node)
-            self.edges[node] = []
-    def addEdge(self, edge):
-        src = edge.getSource()
-        dest = edge.getDestination()
-        if not(src in self.nodes and dest in self.nodes):
-            raise ValueError('Node not in graph')
-        self.edges[src].append(dest)
-    def childrenOf(self, node):
-        return self.edges[node]
-    def hasNode(self, node):
-        return node in self.nodes
-    def __str__(self):
-        res = ''
-        for k in self.edges:
-            for d in self.edges[k]:
-                res = res + str(k) + '->' + str(d) + '\n'
-        return res[:-1]
-
-class Graph(Digraph):
-    def addEdge(self, edge):
-        Digraph.addEdge(self, edge)
-        rev = Edge(edge.getDestination(), edge.getSource())
-        Digraph.addEdge(self, rev)
+#set line width
+pylab.rcParams['lines.linewidth'] = 6
+#set font size for titles 
+pylab.rcParams['axes.titlesize'] = 20
+#set font size for labels on axes
+pylab.rcParams['axes.labelsize'] = 20
+#set size of numbers on x-axis
+pylab.rcParams['xtick.major.size'] = 5
+#set size of numbers on y-axis
+pylab.rcParams['ytick.major.size'] = 5
 
 
 
+def findPayment(loan, r, m):
+    """Assumes: loan and r are floats, m an int
+    Returns the monthly payment for a mortgage of size
+    loan at a monthly rate of r for m months"""
+    return loan*((r*(1+r)**m)/((1+r)**m - 1))
 
-
-def powerGraph(gr):
-    nodes = gr.nodes
-    nodesList = []
-    for elt in nodes:
-        nodesList.append(elt)
-    pSet = powerSet(nodesList)
-    return pSet
-
-def powerSet(elts):
-    if len(elts) == 0:
-        return [[]]
-    else:
-        smaller = powerSet(elts[1:])
-        elt = [elts[0]]
-        withElt = []
-        for s in smaller:
-            withElt.append(s + elt)
-        allofthem = smaller + withElt
-        return allofthem
-
-def maxClique(gr):
-    candidates = powerGraph(gr)
-    keepEm = []
-    for candidate in candidates:
-        if allConnected(gr, candidate):
-            keepEm.append(candidate)
-    bestLength = 0
-    bestSoln = None
-    for test in keepEm:
-        if len(test) > bestLength:
-            bestLength = len(test)
-            bestSoln = test
-    return bestSoln
-
-def allConnected(gr,candidate):
-    for n in candidate:
-        for m in candidate:
-            if not n == m:
-                if n not in gr.childrenOf(m):
-                    return False
-    return True
-
-
-def testGraph():
-    nodes = []
-    for name in range(5):
-        nodes.append(Node(str(name)))
-    g = Graph()
-    for n in nodes:
-        g.addNode(n)
-    g.addEdge(Edge(nodes[0],nodes[1]))
-    g.addEdge(Edge(nodes[1],nodes[2]))
-    g.addEdge(Edge(nodes[2],nodes[0]))
-    g.addEdge(Edge(nodes[2],nodes[4]))
-    g.addEdge(Edge(nodes[4],nodes[3]))
-    return g
-
-
-trialGraph = testGraph()
-myClique = maxClique(trialGraph)
-
-
-
-
+class MortgagePlots(object):
+    
+    def plotPayments(self, style):
+        pylab.plot(self.paid[1:], style, label = self.legend)
         
+    def plotTotPd(self, style):
+        totPd = [self.paid[0]]
+        for i in range(1, len(self.paid)):
+            totPd.append(totPd[-1] + self.paid[i])
+        pylab.plot(totPd, style, label = self.legend)
 
+
+
+
+class Mortgage(MortgagePlots, object):
+    """Abstract class for building different kinds of mortgages"""
+    def __init__(self, loan, annRate, months):
+        """Create a new mortgage"""
+        self.loan = loan
+        self.rate = annRate/12.0
+        self.months = months
+        self.paid = [0.0]
+        self.owed = [loan]
+        self.payment = findPayment(loan, self.rate, months)
+        self.legend = None #description of mortgage
+
+    def makePayment(self):
+        """Make a payment"""
+        self.paid.append(self.payment)
+        reduction = self.payment - self.owed[-1]*self.rate
+        self.owed.append(self.owed[-1] - reduction)
+
+    def getTotalPaid(self):
+        """Return the total amount paid so far"""
+        return sum(self.paid)
+
+    def __str__(self):
+        return self.legend
+
+
+
+
+
+
+# fixed-rate mortgage
+class Fixed(Mortgage):
+    def __init__(self, loan, r, months):
+        Mortgage.__init__(self, loan, r, months)
+        self.legend = 'Fixed, ' + str(r*100) + '%'
+
+# fixed-rate mortgage with up-front points
+class FixedWithPts(Fixed):
+    def __init__(self, loan, r, months, pts):
+        Fixed.__init__(self, loan, r, months)
+        self.pts = pts
+        self.paid = [loan*(pts/100.0)]
+        self.legend += ', ' + str(pts) + ' points'
+
+# mortgage that changes interest rate after 48 months
+class TwoRate(Mortgage):
+    def __init__(self,loan,r,months,teaserRate,teaserMonths):
+        Mortgage.__init__(self, loan, teaserRate, months)
+        self.teaserMonths = teaserMonths
+        self.teaserRate = teaserRate
+        self.nextRate = r/12.0
+        self.legend = str(teaserRate*100)\
+            + '% for ' + str(self.teaserMonths)\
+            + ' months, then ' + str(r*100) + '%'
+
+    def makePayment(self):
+        if len(self.paid) == self.teaserMonths + 1:
+            self.rate = self.nextRate
+            self.payment = findPayment(self.owed[-1], self.rate,
+                                       self.months - \
+                                       self.teaserMonths)
+        Mortgage.makePayment(self)
+
+
+
+
+
+
+
+
+
+
+
+class MortgagePlots(object):
+    
+    def plotPayments(self, style):
+        pylab.plot(self.paid[1:], style, label = self.legend)
+        
+    def plotTotPd(self, style):
+        totPd = [self.paid[0]]
+        for i in range(1, len(self.paid)):
+            totPd.append(totPd[-1] + self.paid[i])
+        pylab.plot(totPd, style, label = self.legend)
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+def plotMortgages(morts, amt):
+    styles = ['b-', 'r-.', 'g:']
+    payments = 0 #number to identify a figure
+    cost = 1 #number to identify a figure
+    pylab.figure(payments)
+    pylab.title('Monthly Payments of Different $' + str(amt)
+                + ' Mortgages')
+    pylab.xlabel('Months')
+    pylab.ylabel('Monthly Payments')
+    pylab.figure(cost)
+    pylab.title('Cost of Different $' + str(amt) + ' Mortgages')
+    pylab.xlabel('Months')
+    pylab.ylabel('Total Payments')
+    for i in range(len(morts)):
+        pylab.figure(payments)
+        morts[i].plotPayments(styles[i])
+        pylab.figure(cost)
+        morts[i].plotTotPd(styles[i])
+    pylab.figure(payments)
+    pylab.legend(loc = 'upper center')
+    pylab.figure(cost)
+    pylab.legend(loc = 'best')
+
+
+
+
+
+
+
+
+
+def compareMortgages(amt, years, fixedRate, pts, ptsRate,
+                    varRate1, varRate2, varMonths):
+    totMonths = years*12
+    fixed1 = Fixed(amt, fixedRate, totMonths)
+    fixed2 = FixedWithPts(amt, ptsRate, totMonths, pts)
+    twoRate = TwoRate(amt, varRate2, totMonths,
+                      varRate1, varMonths)
+    morts = [fixed1, fixed2, twoRate]
+    for m in range(totMonths):
+        for mort in morts:
+            mort.makePayment()
+    plotMortgages(morts, amt)
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+compareMortgages(amt=200000, years=30, fixedRate=0.07,
+                 pts = 3.25, ptsRate=0.05, varRate1=0.045,
+                 varRate2=0.095, varMonths=48)
+
+pylab.show()
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+    
