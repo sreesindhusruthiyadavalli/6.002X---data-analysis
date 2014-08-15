@@ -1,15 +1,26 @@
-def lotsOfParameters2(1,2,3,4,5):
-    print a
-    print b
-    print c
-    print d
-    print e
-    
-#lotsOfParameters2()
-lotsOfParameters2(1, 2)
-#lotsOfParameters2(1, c=2)
+import pylab
+def stdDev(X):
+    mean = sum(X)/float(len(X))
+    tot = 0.0
+    for x in X:
+        tot += (x - mean)**2
+    return (tot/len(X))**0.5
 
-#lotsOfParameters2(1, e= 20,b = 3)
-#lotsOfParameters2(e=5,d=4,c=3,b=2, 1)
-#lotsOfParameters2(e=5,a=1,d=4,b=2,c=3)
-#lotsOfParameters2(a=5,b=1,c=4,d=2,3)
+def scaleFeatures(vals):
+    vals = pylab.array(vals)
+    mean = sum(vals)/float(len(vals))
+    sd = stdDev(vals)
+    vals = vals - mean
+    return vals/sd
+    
+def testScaling(n,mean,std):
+    vals = []
+    for i in range(n):
+        vals.append(int(random.gauss(mean,std)))
+    print 'original values', vals
+    sVals = scaleFeatures(vals)
+    print '\n','scaled values',sVals
+    print '\n','new mean = ', sum(sVals/len(vals))
+    print '\n','new sd = ', stdDev(sVals)
+    
+testScaling(10,25,3)
